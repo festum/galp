@@ -6,14 +6,17 @@ import (
 	"github.com/caarlos0/env"
 	"github.com/joho/godotenv"
 	"gopkg.in/ldap.v2"
-	"log"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
 	"time"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -62,14 +65,14 @@ type app struct{
 func init() {
 	err := godotenv.Load()
 	if err != nil {
-		log.Fatal("Error loading .env file")
+		log.Info().Msg("Error loading .env file")
 	}
 }
 
 func main() {
 	a := app{}
 	if err := env.Parse(&a); err != nil {
-		log.Fatalln("%+v\n", err)
+		log.Info().Msg("%+v\n" + err.Error())
 	}
 	a.JWTAuth = jwtauth.New("HS256", []byte(a.JWT), nil)
 
@@ -84,9 +87,19 @@ func (a app)router() http.Handler {
 	//Private
 	r.Group(func(r chi.Router) {
 		r.Use(jwtauth.Verifier(a.JWTAuth))
-		r.Use(ValidateToken)
+		r.Use(validateToken)
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
+			_, claims, _ := jwtauth.FromContext(r.Context())
+			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
+		})
+	})
+	r.Group(func(r chi.Router) {
+		r.Use(jwtauth.Verifier(a.JWTAuth))
+		r.Use(validateToken)
+		r.Use(a.mapRouter)
+
+		r.Get("/r/*", func(w http.ResponseWriter, r *http.Request) {
 			_, claims, _ := jwtauth.FromContext(r.Context())
 			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
 		})
@@ -117,7 +130,7 @@ func (a app)loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	l := ldapauth{}
 	if err := env.Parse(&l); err != nil {
-		log.Println("%+v\n", err)
+		log.Debug().Msg( err.Error())
 	}
 	if !l.authVerify(email, pass){
 		http.Error(w, "Unauthorized", 401)
@@ -131,11 +144,50 @@ func (a app)loginHandler(w http.ResponseWriter, r *http.Request) {
 
 }
 
-func ValidateToken(next http.Handler) http.Handler {
+func (a app) mapRouter(next http.Handler) http.Handler {
+	fn := func(w http.ResponseWriter, r *http.Request) {
+		appIndex := 2
+		reroute := strings.Split(r.URL.Path, "/")[appIndex] // Path supposed to be /r/[serviceAp]p/[subRoute]
+
+		tURLPlain := a.getService(reroute)
+		if len(tURLPlain) <1 {
+			http.Error(w, fmt.Sprintf("Service not found for %s. Please contact system admin.", reroute), 404)
+			return
+		}
+
+		tURL, err := url.Parse(tURLPlain)
+		if err!=nil {
+			http.Error(w, "Incorrect URL format. Please check the settings.", 400)
+			return
+		}
+
+		r.URL.Host = tURL.Host
+		r.URL.Scheme = tURL.Scheme
+		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
+		r.Host = tURL.Host
+		r.URL.Path = strings.Join(strings.Split(r.URL.Path, "/")[appIndex+1:], "/")
+
+		httputil.NewSingleHostReverseProxy(tURL).ServeHTTP(w, r)
+	}
+	return http.HandlerFunc(fn)
+}
+
+func (a app) getService(serviceName string) string{
+	for _, p := range a.Services {
+		pair := strings.Split(p, "=")
+		log.Debug().Msg(p)
+		if pair[0] == serviceName {
+			return pair[1]
+		}
+	}
+	return ""
+}
+
+func validateToken(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		token, err := r.Cookie("jwt")
 		if err != nil || token == nil {
-			log.Println(err.Error())
+			log.Debug().Msg(err.Error())
 			delCookie(w,"jwt")
 			http.Redirect(w, r, "/login", 302)
 			return
@@ -195,37 +247,36 @@ type ldapauth struct{
 }
 
 func (la ldapauth) authVerify(email, password string) bool{
-	log.Println(la)
 	tlsConfig := &tls.Config{InsecureSkipVerify: la.SkipVerify}
 	l, err := ldap.DialTLS(la.Protocol, fmt.Sprintf("%s:%s", la.Host, la.Port), tlsConfig)
 	if err != nil {
-		log.Fatal(err)
+		log.Info().Msg(err.Error())
 		return false
 	}
 	defer func() {
 		l.Close()
-		log.Println("LDAP server disconnected.")
+		log.Debug().Msg("LDAP server disconnected.")
 	}()
 
 	err = l.Bind(la.BindDN, la.BindPassword)
 	if err != nil {
-		log.Println(err)
+		log.Debug().Msg(err.Error())
 		return false
 	}
-	log.Println("LDAP server logged in.")
+	log.Debug().Msg("LDAP server logged in.")
 
 	sr, err := l.Search(la.searchQuery(email))
 	if err != nil {
-		log.Println(err)
+		log.Debug().Msg(err.Error())
 	}
 	if len(sr.Entries) < 1 {
-		log.Println("User does not exist")
+		log.Debug().Msg("User does not exist")
 		return false
 	}
 	userdn := sr.Entries[0].DN
 	err = l.Bind(userdn, password)
 	if err != nil {
-		log.Println(err)
+		log.Debug().Msg(err.Error())
 		return false
 	}
 
