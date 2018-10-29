@@ -91,7 +91,7 @@ func (a app)router() http.Handler {
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
 			_, claims, _ := jwtauth.FromContext(r.Context())
-			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
+			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", claims["user_id"])))
 		})
 	})
 	r.Group(func(r chi.Router) {
@@ -109,9 +109,6 @@ func (a app)router() http.Handler {
 	r.Group(func(r chi.Router) {
 		r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 			w.Write([]byte("Welcome to go-ldap-auth-proxy"))
-		})
-		r.Get("/login", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(TMPL_INDEX))
 		})
 		r.Post("/api/login", a.loginHandler)
 	})
@@ -139,9 +136,7 @@ func (a app)loginHandler(w http.ResponseWriter, r *http.Request) {
 	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{"user_id": email})
 	addCookie(w, "jwt", tokenString)
 
-	//TODO: proxy path
-	http.Redirect(w, r, "/admin", 302)
-
+	http.Redirect(w, r, r.Header.Get("Referer"), 302)
 }
 
 func (a app) mapRouter(next http.Handler) http.Handler {
@@ -189,14 +184,14 @@ func validateToken(next http.Handler) http.Handler {
 		if err != nil || token == nil {
 			log.Debug().Msg(err.Error())
 			delCookie(w,"jwt")
-			http.Redirect(w, r, "/login", 302)
+			w.Write([]byte(TMPL_INDEX))
 			return
 		}
 
 		_, claims, _ := jwtauth.FromContext(r.Context())
 		if claims["user_id"] == nil{
 			delCookie(w,"jwt")
-			http.Redirect(w, r, "/login", 302)
+			w.Write([]byte(TMPL_INDEX))
 			return
 		}
 
