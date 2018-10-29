@@ -4,7 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/caarlos0/env"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/joho/godotenv"
+	"github.com/tidwall/buntdb"
+	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/ldap.v2"
 	"net/http"
 	"net/http/httputil"
@@ -12,7 +15,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/jwtauth"
@@ -56,9 +58,11 @@ const (
 type app struct{
 	IsDev        bool          `env:"DEV_MODE" envDefault:true`
 	Address      string        `env:"APP_ADDR" envDefault:"80"`
+	DBPath       string        `env:"DB_PATH" envDefault:"galp.db"`
+	DBClient     *buntdb.DB
+	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
 	JWT          string        `env:"APP_JWT_KEY"`
 	JWTAuth 	 *jwtauth.JWTAuth
-	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
 }
 
 
@@ -74,12 +78,17 @@ func main() {
 	if err := env.Parse(&a); err != nil {
 		log.Info().Msg("%+v\n" + err.Error())
 	}
+	db, err := buntdb.Open(a.DBPath)
+	if err != nil {
+		log.Info().Msg(err.Error())
+	}
+	a.DBClient = db
 	a.JWTAuth = jwtauth.New("HS256", []byte(a.JWT), nil)
 
 	http.ListenAndServe(a.Address, a.router())
 }
 
-func (a app)router() http.Handler {
+func (a app) router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
@@ -87,22 +96,18 @@ func (a app)router() http.Handler {
 	//Private
 	r.Group(func(r chi.Router) {
 		r.Use(jwtauth.Verifier(a.JWTAuth))
-		r.Use(validateToken)
+		r.Use(a.validateToken)
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-			_, claims, _ := jwtauth.FromContext(r.Context())
-			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", claims["user_id"])))
+			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", r.Header.Get("GALP_UID"))))
 		})
 	})
 	r.Group(func(r chi.Router) {
 		r.Use(jwtauth.Verifier(a.JWTAuth))
-		r.Use(validateToken)
+		r.Use(a.validateToken)
 		r.Use(a.mapRouter)
 
-		r.HandleFunc("/r/*", func(w http.ResponseWriter, r *http.Request) {
-			_, claims, _ := jwtauth.FromContext(r.Context())
-			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
-		})
+		r.HandleFunc("/r/*", func(w http.ResponseWriter, r *http.Request) {})
 	})
 
 	//Public
@@ -117,7 +122,7 @@ func (a app)router() http.Handler {
 }
 
 
-func (a app)loginHandler(w http.ResponseWriter, r *http.Request) {
+func (a app) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	pass := r.FormValue("password")
 
@@ -133,10 +138,20 @@ func (a app)loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
-	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{"user_id": email})
-	addCookie(w, "jwt", tokenString)
+	a.addCookie(w, email)
 
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
+}
+
+func (a app) addCookie(w http.ResponseWriter, id string){
+	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{
+		"id": id,
+		"standard": jwt.StandardClaims{
+			ExpiresAt: time.Now().Add(time.Hour * 72).Unix(),
+			Issuer:    "galp",
+		},
+	})
+	addCookie(w, "jwt", tokenString)
 }
 
 func (a app) mapRouter(next http.Handler) http.Handler {
@@ -178,7 +193,7 @@ func (a app) getService(serviceName string) string{
 	return ""
 }
 
-func validateToken(next http.Handler) http.Handler {
+func (a app) validateToken(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
 		token, err := r.Cookie("jwt")
 		if err != nil || token == nil {
@@ -189,12 +204,14 @@ func validateToken(next http.Handler) http.Handler {
 		}
 
 		_, claims, _ := jwtauth.FromContext(r.Context())
-		if claims["user_id"] == nil{
+		if claims["id"] == nil || claims["standard"].(jwt.StandardClaims).ExpiresAt < time.Now().Unix(){
 			delCookie(w,"jwt")
 			w.Write([]byte(TMPL_INDEX))
 			return
 		}
-
+		id := claims["id"].(string)
+		a.addCookie(w, id)// Extend expiry
+		r.Header.Set("GALP_UID", id)
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
@@ -280,4 +297,12 @@ func (la ldapauth) searchQuery(username string) *ldap.SearchRequest {
 		[]string{"dn"},
 		nil,
 	)
+}
+
+
+func pwdIsValid(hashedPwd string, plainPwd []byte) bool {
+	if err := bcrypt.CompareHashAndPassword([]byte(hashedPwd), plainPwd); err != nil {
+		return false
+	}
+	return true
 }
