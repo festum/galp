@@ -138,16 +138,18 @@ func (a app) loginHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
-	a.addCookie(w, email)
+	a.addJWT(w, email)
 
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
 }
 
-func (a app) addCookie(w http.ResponseWriter, id string){
+func (a app) addJWT(w http.ResponseWriter, id string){
+	exp := time.Now().Add(time.Hour * 72).Unix()
 	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{
 		"id": id,
+		"expiry": exp,
 		"standard": jwt.StandardClaims{
-			ExpiresAt: time.Now().Add(time.Hour * 72).Unix(),
+			ExpiresAt: exp,
 			Issuer:    "galp",
 		},
 	})
@@ -202,15 +204,20 @@ func (a app) validateToken(next http.Handler) http.Handler {
 			w.Write([]byte(TMPL_INDEX))
 			return
 		}
-
 		_, claims, _ := jwtauth.FromContext(r.Context())
-		if claims["id"] == nil || claims["standard"].(jwt.StandardClaims).ExpiresAt < time.Now().Unix(){
+		if claims["id"] == nil || claims["expiry"] == nil {
 			delCookie(w,"jwt")
 			w.Write([]byte(TMPL_INDEX))
 			return
 		}
+		if int64(claims["expiry"].(float64)) < time.Now().Unix(){
+			delCookie(w,"jwt")
+			w.Write([]byte(TMPL_INDEX))
+			return
+		}
+		
 		id := claims["id"].(string)
-		a.addCookie(w, id)// Extend expiry
+		a.addJWT(w, id)// Extend expiry
 		r.Header.Set("GALP_UID", id)
 		next.ServeHTTP(w, r)
 	}
