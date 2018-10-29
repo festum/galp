@@ -99,7 +99,7 @@ func (a app)router() http.Handler {
 		r.Use(validateToken)
 		r.Use(a.mapRouter)
 
-		r.Get("/r/*", func(w http.ResponseWriter, r *http.Request) {
+		r.HandleFunc("/r/*", func(w http.ResponseWriter, r *http.Request) {
 			_, claims, _ := jwtauth.FromContext(r.Context())
 			w.Write([]byte(fmt.Sprintf("protected area. hi %v", claims["user_id"])))
 		})
@@ -199,12 +199,6 @@ func validateToken(next http.Handler) http.Handler {
 	}
 	return http.HandlerFunc(fn)
 }
-
-type User struct {
-	Email string  `json:"email,omitempty"`
-	Password string `json:"password,omitempty"`
-}
-
 
 func addCookie(w http.ResponseWriter, name string, value string) {
 	expire := time.Now().AddDate(0, 0, 1)
