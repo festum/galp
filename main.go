@@ -62,6 +62,7 @@ type app struct{
 	DBClient     *buntdb.DB
 	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
 	JWT          string        `env:"APP_JWT_KEY"`
+	JWTTTL       time.Duration `env:"APP_JWT_TTL" envDefault:72`
 	JWTAuth 	 *jwtauth.JWTAuth
 }
 
@@ -144,14 +145,10 @@ func (a app) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a app) addJWT(w http.ResponseWriter, id string){
-	exp := time.Now().Add(time.Hour * 72).Unix()
+	exp := time.Now().Add(time.Hour * a.JWTTTL).Unix()
 	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{
 		"id": id,
-		"expiry": exp,
-		"standard": jwt.StandardClaims{
-			ExpiresAt: exp,
-			Issuer:    "galp",
-		},
+		"exp": exp,
 	})
 	addCookie(w, "jwt", tokenString)
 }
@@ -205,12 +202,7 @@ func (a app) validateToken(next http.Handler) http.Handler {
 			return
 		}
 		_, claims, _ := jwtauth.FromContext(r.Context())
-		if claims["id"] == nil || claims["expiry"] == nil {
-			delCookie(w,"jwt")
-			w.Write([]byte(TMPL_INDEX))
-			return
-		}
-		if int64(claims["expiry"].(float64)) < time.Now().Unix(){
+		if claims["id"] == nil {
 			delCookie(w,"jwt")
 			w.Write([]byte(TMPL_INDEX))
 			return
@@ -225,12 +217,12 @@ func (a app) validateToken(next http.Handler) http.Handler {
 }
 
 func addCookie(w http.ResponseWriter, name string, value string) {
-	expire := time.Now().AddDate(0, 0, 1)
+	exp := time.Now().AddDate(0, 0, 7)
 	c := http.Cookie{
 		Name:    name,
 		Value:   value,
 		Path:     "/",
-		Expires: expire,
+		Expires: exp,
 	}
 	http.SetCookie(w, &c)
 }
