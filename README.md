@@ -25,3 +25,9 @@ vim .env
 
 - Run `go run main.go`
 
+
+## Flavor
+
+- [BadgerDB](https://github.com/dgraph-io/badger) - It's the [fastest](https://blog.dgraph.io/post/badger/) KV storage using LSM-trees based on [WiscKey: Separating Keys from Values in SSD-conscious Storage](https://www.usenix.org/system/files/conference/fast16/fast16-papers-lu.pdf)
+- [Chi](https://github.com/go-chi/chi) - A lightweight, idiomatic and composable router with good middleware supported
+- [Docopt.go](https://github.com/docopt/docopt.go) - Pythonic command line arguments parser, just fits tiny cli tool
