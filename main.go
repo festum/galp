@@ -60,7 +60,7 @@ type app struct{
 	Address      string        `env:"APP_ADDR" envDefault:"80"`
 	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
 	JWT          string        `env:"APP_JWT_KEY"`
-	JWTTTL       int           `env:"APP_JWT_TTL" envDefault:"72""`
+	JWTTTL       int           `env:"APP_JWT_TTL" envDefault:"72"`
 	JWTAuth 	 *jwtauth.JWTAuth
 }
 
