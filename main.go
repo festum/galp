@@ -9,6 +9,7 @@ import (
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/ldap.v2"
+	"io/ioutil"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -59,8 +60,8 @@ type app struct{
 	IsDev        bool          `env:"DEV_MODE" envDefault:true`
 	Address      string        `env:"APP_ADDR" envDefault:"80"`
 	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
-	JWT          string        `env:"APP_JWT_KEY"`
 	JWTTTL       int           `env:"APP_JWT_TTL" envDefault:"72"`
+	JWTPKPath    string        `env:"APP_JWT_KEY" envDefault:"./galp.key"`
 	JWTAuth 	 *jwtauth.JWTAuth
 }
 
@@ -75,9 +76,14 @@ func init() {
 func main() {
 	a := app{}
 	if err := env.Parse(&a); err != nil {
-		log.Info().Msg("%+v\n" + err.Error())
+		log.Info().Msg(err.Error())
 	}
-	a.JWTAuth = jwtauth.New("HS256", []byte(a.JWT), nil)
+	pk, err := ioutil.ReadFile(a.JWTPKPath)
+	if err != nil {
+		log.Info().Msg("Error reading private key " + err.Error())
+		return
+	}
+	a.JWTAuth = jwtauth.New("HS256", []byte(pk), nil)
 
 	http.ListenAndServe(a.Address, a.router())
 }

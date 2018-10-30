@@ -6,14 +6,23 @@ Many SME using LDAP to manage their employee accounts. Sometimes developer just 
 This proxy will going to check accounts credentials from LDAP and extra storage. Then set a JWT token on the domain. 
 Each request will validate this token and pass request with identity to internal service if valid.
 
+**Features**
+
+- Expose internal service by reverse proxy
+- Token verification/encryption
+- Auto extend token TTL
+- Pass user identity to internal service
+- LDAP authorization
+- DB authorization with `bcrypt.MinCost`
+
 ## Getting Start
 
 - Generate a key for encryption
 
 ```
 cd galp
-ssh-keygen -t rsa -b 2048 -f daRS256.key
-openssl rsa -in daRS256.key -pubout -outform PEM -out daRS256.key.pub
+ssh-keygen -t rsa -b 2048 -f ./galp.key
+openssl rsa -in ./galp.key -pubout -outform PEM -out ./galp.key.pub
 ```
 
 - Edit variables
