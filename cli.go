@@ -20,10 +20,10 @@ func main() {
 	usage := `GALP.
 
 Usage:
-  galp user new <name> <password>
+  galp user add <name> <password>
   galp user check <name> <password>
   galp user delete <name>
-  galp user list
+  galp user show
   galp -h | --help
   galp --version
 
@@ -44,9 +44,11 @@ Options:
 	defer db.Close()
 
 	if args["user"].(bool){
-		if args["list"].(bool){
+		if args["show"].(bool){
 			err := db.View(func(txn *badger.Txn) error {
-				it := txn.NewIterator(badger.DefaultIteratorOptions)
+				opts := badger.DefaultIteratorOptions
+				opts.PrefetchSize = 10
+				it := txn.NewIterator(opts)
 				defer it.Close()
 				for it.Rewind(); it.Valid(); it.Next() {
 					item := it.Item()
@@ -77,10 +79,10 @@ Options:
 			fmt.Println("Deleted")
 			return
 		}
-		dbUser, existErr := getVal(db, nm)
+		storedHash, existErr := getVal(db, nm)
 		notFound := existErr == badger.ErrKeyNotFound
 		pw := args["<password>"].(string)
-		if args["new"].(bool){
+		if args["add"].(bool){
 			if !notFound {
 				fmt.Println("User already existed")
 				return
@@ -94,7 +96,7 @@ Options:
 			return
 		}
 		if args["check"].(bool){
-			if err := bcrypt.CompareHashAndPassword(dbUser, []byte(pw)); err != nil{
+			if err := bcrypt.CompareHashAndPassword(storedHash, []byte(pw)); err != nil{
 				fmt.Println("Incorrect password")
 				return
 			}
@@ -124,15 +126,12 @@ func getVal(db *badger.DB, key string) ([]byte, error){
 		if err != nil {
 			return err
 		}
-
-		err = item.Value(func(val []byte) error {
-			valCopy = append([]byte{}, val...)
-			return nil
-		})
-		if err != nil {
+		if err := item.Value(func(val []byte) error {
+				valCopy = append([]byte{}, val...)
+				return nil
+			});err != nil {
 			return err
 		}
-
 		return nil
 	})
 	if err != nil {

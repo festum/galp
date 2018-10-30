@@ -4,9 +4,9 @@ import (
 	"crypto/tls"
 	"fmt"
 	"github.com/caarlos0/env"
+	"github.com/dgraph-io/badger"
 	"github.com/dgrijalva/jwt-go"
 	"github.com/joho/godotenv"
-	"github.com/tidwall/buntdb"
 	"golang.org/x/crypto/bcrypt"
 	"gopkg.in/ldap.v2"
 	"net/http"
@@ -58,11 +58,9 @@ const (
 type app struct{
 	IsDev        bool          `env:"DEV_MODE" envDefault:true`
 	Address      string        `env:"APP_ADDR" envDefault:"80"`
-	DBPath       string        `env:"DB_PATH" envDefault:"galp.db"`
-	DBClient     *buntdb.DB
 	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
 	JWT          string        `env:"APP_JWT_KEY"`
-	JWTTTL       time.Duration `env:"APP_JWT_TTL" envDefault:72`
+	JWTTTL       int           `env:"APP_JWT_TTL" envDefault:"72""`
 	JWTAuth 	 *jwtauth.JWTAuth
 }
 
@@ -79,11 +77,6 @@ func main() {
 	if err := env.Parse(&a); err != nil {
 		log.Info().Msg("%+v\n" + err.Error())
 	}
-	db, err := buntdb.Open(a.DBPath)
-	if err != nil {
-		log.Info().Msg(err.Error())
-	}
-	a.DBClient = db
 	a.JWTAuth = jwtauth.New("HS256", []byte(a.JWT), nil)
 
 	http.ListenAndServe(a.Address, a.router())
@@ -145,7 +138,7 @@ func (a app) loginHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func (a app) addJWT(w http.ResponseWriter, id string){
-	exp := time.Now().Add(time.Hour * a.JWTTTL).Unix()
+	exp := time.Now().Add(time.Hour * time.Duration(a.JWTTTL)).Unix()
 	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{
 		"id": id,
 		"exp": exp,
@@ -249,6 +242,8 @@ type ldapauth struct{
 	Filter string `env:"LDAP_FILTER"`
 	AttributeMail string `env:"LDAP_ATTRIBUTE_MAIL" envDefault:"mail"`
 	AttributesInBind bool `env:"LDAP_ATTRIBUTES_IN_BIND" envDefault:false`
+
+	DBPath       string        `env:"DB_PATH" envDefault:"galp.db"`
 }
 
 func (la ldapauth) authVerify(email, password string) bool{
@@ -274,18 +269,45 @@ func (la ldapauth) authVerify(email, password string) bool{
 	if err != nil {
 		log.Debug().Msg(err.Error())
 	}
-	if len(sr.Entries) < 1 {
-		log.Debug().Msg("User does not exist")
-		return false
-	}
-	userdn := sr.Entries[0].DN
-	err = l.Bind(userdn, password)
-	if err != nil {
-		log.Debug().Msg(err.Error())
-		return false
+	if len(sr.Entries) > 0 {
+		if err := l.Bind(sr.Entries[0].DN, password); err == nil {
+			log.Debug().Msg("Login through LDAP")
+			return true
+		}
 	}
 
-	return true
+	opts := badger.DefaultOptions
+	opts.Dir = la.DBPath
+	opts.ValueDir = la.DBPath
+	db, err := badger.Open(opts)
+	if err != nil {
+		log.Info().Msg(err.Error())
+		return false
+	}
+	defer db.Close()
+	var pwHash []byte
+	if err := db.View(func(txn *badger.Txn) error {
+			item, err := txn.Get([]byte(email))
+			if err != nil {
+				return err
+			}
+			if err := item.Value(func(val []byte) error {
+				pwHash = append([]byte{}, val...)
+				return nil
+			}); err != nil {
+				return err
+			}
+			return nil
+		}); err != nil {
+		log.Info().Msg(err.Error())
+		return false
+	}
+	if err := bcrypt.CompareHashAndPassword(pwHash, []byte(password)); err == nil{
+		log.Debug().Msg("Login through DB")
+		return true
+	}
+
+	return false
 }
 
 func (la ldapauth) searchQuery(username string) *ldap.SearchRequest {

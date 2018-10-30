@@ -23,7 +23,16 @@ cp .env.sample .env
 vim .env
 ```
 
-- Run `go run main.go`
+- Build
+```
+go build -o=galp src/github.com/festum/go-ldapauth/cli.go
+go build -o=galp-server src/github.com/festum/go-ldapauth/main.go
+```
+
+- Add a new user: `./galp user add user1 password`
+
+- Run server: `./galp-server`
+
 
 
 ## Flavor
