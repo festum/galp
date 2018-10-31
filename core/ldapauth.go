@@ -10,20 +10,20 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-type ldapauth struct{
-	Host              string `env:"LDAP_HOST"`
-	Port              string `env:"LDAP_PORT" envDefault:"636"`
-	Protocol          string `env:"LDAP_PROTOCOL" envDefault:"tcp"`
-	SkipVerify        bool   `env:"LDAP_SKIP_VERIFY" envDefault:true`
-	BindDN            string `env:"LDAP_BIND_DN"`
-	BindPassword      string `env:"LDAP_BIND_PASSWORD"`
-	UserBase          string `env:"LDAP_USER_BASE"`
-	Filter            string `env:"LDAP_FILTER" envDefault:"((mail=%s))"`
+type ldapauth struct {
+	Host         string `env:"LDAP_HOST"`
+	Port         string `env:"LDAP_PORT" envDefault:"636"`
+	Protocol     string `env:"LDAP_PROTOCOL" envDefault:"tcp"`
+	SkipVerify   bool   `env:"LDAP_SKIP_VERIFY" envDefault:"true"`
+	BindDN       string `env:"LDAP_BIND_DN"`
+	BindPassword string `env:"LDAP_BIND_PASSWORD"`
+	UserBase     string `env:"LDAP_USER_BASE"`
+	Filter       string `env:"LDAP_FILTER" envDefault:"((mail=%s))"`
 
-	DBPath            string `env:"DB_PATH" envDefault:"galp.db"`
+	DBPath string `env:"DB_PATH" envDefault:"galp.db"`
 }
 
-func (la ldapauth) authVerify(email, password string) bool{
+func (la ldapauth) authVerify(email, password string) bool {
 	tlsConfig := &tls.Config{InsecureSkipVerify: la.SkipVerify}
 	l, err := ldap.DialTLS(la.Protocol, fmt.Sprintf("%s:%s", la.Host, la.Port), tlsConfig)
 	if err != nil {
@@ -64,22 +64,20 @@ func (la ldapauth) authVerify(email, password string) bool{
 	defer db.Close()
 	var pwHash []byte
 	if err := db.View(func(txn *badger.Txn) error {
-			item, err := txn.Get([]byte(email))
-			if err != nil {
-				return err
-			}
-			if err := item.Value(func(val []byte) error {
-				pwHash = append([]byte{}, val...)
-				return nil
-			}); err != nil {
-				return err
-			}
-			return nil
-		}); err != nil {
+		item, err := txn.Get([]byte(email))
+		if err != nil {
+			return err
+		}
+		pwHash, err = item.ValueCopy(nil)
+		if  err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
 		log.Info().Msg(err.Error())
 		return false
 	}
-	if err := bcrypt.CompareHashAndPassword(pwHash, []byte(password)); err == nil{
+	if err := bcrypt.CompareHashAndPassword(pwHash, []byte(password)); err == nil {
 		log.Debug().Msg("Login through DB")
 		return true
 	}

@@ -43,8 +43,8 @@ Options:
 	}
 	defer db.Close()
 
-	if args["user"].(bool){
-		if args["show"].(bool){
+	if args["user"].(bool) {
+		if args["show"].(bool) {
 			err := db.View(func(txn *badger.Txn) error {
 				opts := badger.DefaultIteratorOptions
 				opts.PrefetchSize = 10
@@ -53,26 +53,24 @@ Options:
 				for it.Rewind(); it.Valid(); it.Next() {
 					item := it.Item()
 					k := item.Key()
-					err := item.Value(func(v []byte) error {
-						fmt.Printf("%s:%s\n", k, v)
-						return nil
-					})
+					v, err := item.ValueCopy(nil)
 					if err != nil {
 						return err
 					}
+					fmt.Printf("%s:%s\n", k, v)
 				}
 				return nil
 			})
-			if err!=nil{
+			if err != nil {
 				fmt.Println("Listing error: ", err.Error())
 				return
 			}
 			return
 		}
 		nm := args["<name>"].(string)
-		if args["delete"].(bool){
+		if args["delete"].(bool) {
 			err = delKey(db, nm)
-			if err!=nil{
+			if err != nil {
 				fmt.Println("Deletion failed: ", err.Error())
 				return
 			}
@@ -82,21 +80,21 @@ Options:
 		storedHash, existErr := getVal(db, nm)
 		notFound := existErr == badger.ErrKeyNotFound
 		pw := args["<password>"].(string)
-		if args["add"].(bool){
+		if args["add"].(bool) {
 			if !notFound {
 				fmt.Println("User already existed")
 				return
 			}
-			err = updateVal(db, nm,  pwdHashing(pw))
-			if err!=nil{
+			err = updateVal(db, nm, pwdHashing(pw))
+			if err != nil {
 				fmt.Println("Create user failed: ", err.Error())
 				return
 			}
 			fmt.Println("User created")
 			return
 		}
-		if args["check"].(bool){
-			if err := bcrypt.CompareHashAndPassword(storedHash, []byte(pw)); err != nil{
+		if args["check"].(bool) {
+			if err := bcrypt.CompareHashAndPassword(storedHash, []byte(pw)); err != nil {
 				fmt.Println("Incorrect password")
 				return
 			}
@@ -106,54 +104,44 @@ Options:
 	}
 }
 
-func updateVal(db *badger.DB, key string, val string) error{
+func updateVal(db *badger.DB, key string, val string) error {
 	txn := db.NewTransaction(true)
 	defer txn.Discard()
 	err := txn.Set([]byte(key), []byte(val))
 	if err != nil {
 		return err
 	}
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-	return nil
+
+	return txn.Commit()
 }
 
-func getVal(db *badger.DB, key string) ([]byte, error){
+func getVal(db *badger.DB, key string) ([]byte, error) {
 	var valCopy []byte
 	err := db.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte(key))
 		if err != nil {
 			return err
 		}
-		if err := item.Value(func(val []byte) error {
-				valCopy = append([]byte{}, val...)
-				return nil
-			});err != nil {
+		valCopy, err = item.ValueCopy(nil)
+		if err != nil {
 			return err
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
 
 	return valCopy, err
 }
 
-func delKey(db *badger.DB, key string) error{
+func delKey(db *badger.DB, key string) error {
 	txn := db.NewTransaction(true)
 	defer txn.Discard()
 	err := txn.Delete([]byte(key))
 	if err != nil {
 		return err
 	}
-	if err := txn.Commit(); err != nil {
-		return err
-	}
-	return nil
-}
 
+	return txn.Commit()
+}
 
 func pwdHashing(pwd string) string {
 	hash, err := bcrypt.GenerateFromPassword([]byte(pwd), bcrypt.MinCost)

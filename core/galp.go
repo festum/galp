@@ -18,7 +18,8 @@ import (
 )
 
 const (
-	TMPL_INDEX = `
+	//TMPLIndex contains HTML Template for Index
+	TMPLIndex = `
 <html>
 <head>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.css">
@@ -49,19 +50,25 @@ const (
 </html>
 `
 )
-func init(){
+
+//App grouping Chi routes and handlers
+type App struct {
+	IsDev     bool     `env:"DEV_MODE" envDefault:"true"`
+	Address   string   `env:"APP_ADDR" envDefault:"80"`
+	Services  []string `env:"EXPOSE_SERVICES" envSeparator:";"`
+	JWTTTL    int      `env:"APP_JWT_TTL" envDefault:"72"`
+	JWTPKPath string   `env:"APP_JWT_KEY" envDefault:"./galp.key"`
+	JWTAuth   *jwtauth.JWTAuth
+}
+
+func (a App) init() {
 	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
+	if a.IsDev {
+		zerolog.SetGlobalLevel(zerolog.DebugLevel)
+	}
 }
 
-type App struct{
-	IsDev        bool          `env:"DEV_MODE" envDefault:true`
-	Address      string        `env:"APP_ADDR" envDefault:"80"`
-	Services     []string      `env:"EXPOSE_SERVICES" envSeparator:";"`
-	JWTTTL       int           `env:"APP_JWT_TTL" envDefault:"72"`
-	JWTPKPath    string        `env:"APP_JWT_KEY" envDefault:"./galp.key"`
-	JWTAuth 	 *jwtauth.JWTAuth
-}
-
+//Router Chi router
 func (a App) Router() http.Handler {
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
@@ -95,7 +102,6 @@ func (a App) Router() http.Handler {
 	return r
 }
 
-
 func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	email := r.FormValue("email")
 	pass := r.FormValue("password")
@@ -106,9 +112,9 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	l := ldapauth{}
 	if err := env.Parse(&l); err != nil {
-		log.Debug().Msg( err.Error())
+		log.Debug().Msg(err.Error())
 	}
-	if !l.authVerify(email, pass){
+	if !l.authVerify(email, pass) {
 		http.Error(w, "Unauthorized", 401)
 		return
 	}
@@ -117,10 +123,10 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
 }
 
-func (a App) addJWT(w http.ResponseWriter, id string){
+func (a App) addJWT(w http.ResponseWriter, id string) {
 	exp := time.Now().Add(time.Hour * time.Duration(a.JWTTTL)).Unix()
 	_, tokenString, _ := a.JWTAuth.Encode(jwt.MapClaims{
-		"id": id,
+		"id":  id,
 		"exp": exp,
 	})
 	addCookie(w, "jwt", tokenString)
@@ -132,13 +138,13 @@ func (a App) mapRouter(next http.Handler) http.Handler {
 		reroute := strings.Split(r.URL.Path, "/")[appIndex] // Path supposed to be /r/[serviceAp]p/[subRoute]
 
 		tURLPlain := a.getService(reroute)
-		if len(tURLPlain) <1 {
+		if len(tURLPlain) < 1 {
 			http.Error(w, fmt.Sprintf("Service not found for %s. Please contact system admin.", reroute), 404)
 			return
 		}
 
 		tURL, err := url.Parse(tURLPlain)
-		if err!=nil {
+		if err != nil {
 			http.Error(w, "Incorrect URL format. Please check the settings.", 400)
 			return
 		}
@@ -154,7 +160,7 @@ func (a App) mapRouter(next http.Handler) http.Handler {
 	return http.HandlerFunc(fn)
 }
 
-func (a App) getService(serviceName string) string{
+func (a App) getService(serviceName string) string {
 	for _, p := range a.Services {
 		pair := strings.Split(p, "=")
 		log.Debug().Msg(p)
@@ -170,19 +176,19 @@ func (a App) validateToken(next http.Handler) http.Handler {
 		token, err := r.Cookie("jwt")
 		if err != nil || token == nil {
 			log.Debug().Msg(err.Error())
-			delCookie(w,"jwt")
-			w.Write([]byte(TMPL_INDEX))
+			delCookie(w, "jwt")
+			w.Write([]byte(TMPLIndex))
 			return
 		}
 		_, claims, _ := jwtauth.FromContext(r.Context())
 		if claims["id"] == nil {
-			delCookie(w,"jwt")
-			w.Write([]byte(TMPL_INDEX))
+			delCookie(w, "jwt")
+			w.Write([]byte(TMPLIndex))
 			return
 		}
-		
+
 		id := claims["id"].(string)
-		a.addJWT(w, id)// Extend expiry
+		a.addJWT(w, id) // Extend expiry
 		r.Header.Set("GALP_UID", id)
 		next.ServeHTTP(w, r)
 	}
@@ -194,18 +200,18 @@ func addCookie(w http.ResponseWriter, name string, value string) {
 	c := http.Cookie{
 		Name:    name,
 		Value:   value,
-		Path:     "/",
+		Path:    "/",
 		Expires: exp,
 	}
 	http.SetCookie(w, &c)
 }
 
-func delCookie(w http.ResponseWriter, name string){
+func delCookie(w http.ResponseWriter, name string) {
 	c := &http.Cookie{
 		Name:     name,
 		Value:    "",
 		Path:     "/",
-		Expires: time.Unix(0, 0),
+		Expires:  time.Unix(0, 0),
 		HttpOnly: true,
 	}
 	http.SetCookie(w, c)
