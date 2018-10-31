@@ -18,7 +18,7 @@ func init() {
 	os.Setenv("LDAP_PORT", "636")
 	os.Setenv("LDAP_PROTOCOL", "tcp")
 	os.Setenv("LDAP_SKIP_VERIFY", "true")
-	os.Setenv("LDAP_FILTER", "(&(objectClass=posixAccount)(uid=%s))")
+	os.Setenv("LDAP_FILTER", "((mail=%s))")
 }
 
 func TestApp(t *testing.T) {

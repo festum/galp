@@ -18,9 +18,7 @@ type ldapauth struct{
 	BindDN            string `env:"LDAP_BIND_DN"`
 	BindPassword      string `env:"LDAP_BIND_PASSWORD"`
 	UserBase          string `env:"LDAP_USER_BASE"`
-	Filter            string `env:"LDAP_FILTER"`
-	AttributeMail     string `env:"LDAP_ATTRIBUTE_MAIL" envDefault:"mail"`
-	AttributesInBind  bool   `env:"LDAP_ATTRIBUTES_IN_BIND" envDefault:false`
+	Filter            string `env:"LDAP_FILTER" envDefault:"((mail=%s))"`
 
 	DBPath            string `env:"DB_PATH" envDefault:"galp.db"`
 }
