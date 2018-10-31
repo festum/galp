@@ -1,5 +1,7 @@
 # GALP (go-auth-ldap-proxy)
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/festum/galp)](https://goreportcard.com/report/github.com/festum/galp)
+
 A reverse proxy provides authentication using LDAP and extra auth source to validate accounts by email. Inspired by [bitly/oauth2_proxy](https://github.com/bitly/oauth2_proxy).
 Many SME using LDAP to manage their employee accounts. Sometimes developer just want to expose internal services and limited access for only employees.
 
