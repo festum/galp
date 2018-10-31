@@ -69,7 +69,7 @@ func (la ldapauth) authVerify(email, password string) bool {
 			return err
 		}
 		pwHash, err = item.ValueCopy(nil)
-		if  err != nil {
+		if err != nil {
 			return err
 		}
 		return nil
