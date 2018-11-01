@@ -1,6 +1,7 @@
 package galp
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/caarlos0/env"
 	"github.com/dgrijalva/jwt-go"
@@ -80,7 +81,7 @@ func (a App) Router() http.Handler {
 		r.Use(a.validateToken)
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", r.Header.Get("GALP_UID"))))
+			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", r.Header.Get("GALP-UID"))))
 		})
 	})
 	r.Group(func(r chi.Router) {
@@ -103,13 +104,32 @@ func (a App) Router() http.Handler {
 }
 
 func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
-	email := r.FormValue("email")
-	pass := r.FormValue("password")
-
+	var email, pass string
+	isAPI := r.Header.Get("Content-type") == "application/json"
+	if isAPI {
+		u := struct{
+			Email string `json:"email"`
+			Password string `json:"password"`
+		}{}
+		if r.Body == nil {
+			http.Error(w, "Please send a request body", 400)
+			return
+		}
+		if err := json.NewDecoder(r.Body).Decode(&u); err != nil {
+			http.Error(w, err.Error(), 400)
+			return
+		}
+		email = u.Email
+		pass = u.Password
+	} else {
+		email = r.FormValue("email")
+		pass = r.FormValue("password")
+	}
 	if email == "" || pass == "" {
 		http.Error(w, "Please enter correct email and password", 400)
 		return
 	}
+
 	l := ldapauth{}
 	if err := env.Parse(&l); err != nil {
 		log.Debug().Msg(err.Error())
@@ -120,6 +140,10 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	a.addJWT(w, email)
 
+	if isAPI {
+		w.WriteHeader(200)
+		return
+	}
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
 }
 
@@ -130,6 +154,7 @@ func (a App) addJWT(w http.ResponseWriter, id string) {
 		"exp": exp,
 	})
 	addCookie(w, "jwt", tokenString)
+	w.Header().Set("Authorization", fmt.Sprintf("BEARER %s", tokenString))
 }
 
 func (a App) mapRouter(next http.Handler) http.Handler {
