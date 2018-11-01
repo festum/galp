@@ -107,8 +107,8 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 	var email, pass string
 	isAPI := r.Header.Get("Content-type") == "application/json"
 	if isAPI {
-		u := struct{
-			Email string `json:"email"`
+		u := struct {
+			Email    string `json:"email"`
 			Password string `json:"password"`
 		}{}
 		if r.Body == nil {
