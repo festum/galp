@@ -189,7 +189,7 @@ func (a App) validateToken(next http.Handler) http.Handler {
 
 		id := claims["id"].(string)
 		a.addJWT(w, id) // Extend expiry
-		r.Header.Set("GALP_UID", id)
+		r.Header.Set("GALP-UID", id)
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
