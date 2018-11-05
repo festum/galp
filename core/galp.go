@@ -3,18 +3,19 @@ package galp
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/caarlos0/env"
-	"github.com/dgrijalva/jwt-go"
-	"github.com/rs/zerolog"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
 	"strings"
 	"time"
 
+	"github.com/caarlos0/env"
+	"github.com/dgrijalva/jwt-go"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/go-chi/cors"
 	"github.com/go-chi/jwtauth"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -71,9 +72,18 @@ func (a App) init() {
 
 //Router Chi router
 func (a App) Router() http.Handler {
+	cx := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
+		ExposedHeaders:   []string{"Link"},
+		AllowCredentials: true,
+		MaxAge:           300, // Maximum value not ignored by any of major browsers
+	})
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
 	r.Use(middleware.Logger)
+	r.Use(cx.Handler)
 
 	//Private
 	r.Group(func(r chi.Router) {
@@ -202,12 +212,14 @@ func (a App) validateToken(next http.Handler) http.Handler {
 		if err != nil || token == nil {
 			log.Debug().Msg(err.Error())
 			delCookie(w, "jwt")
+			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(TMPLIndex))
 			return
 		}
 		_, claims, _ := jwtauth.FromContext(r.Context())
 		if claims["id"] == nil {
 			delCookie(w, "jwt")
+			w.WriteHeader(http.StatusForbidden)
 			w.Write([]byte(TMPLIndex))
 			return
 		}
