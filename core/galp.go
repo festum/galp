@@ -76,7 +76,7 @@ func (a App) Router() http.Handler {
 		AllowedOrigins:   []string{"*"},
 		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link"},
+		ExposedHeaders:   []string{"Link", "Authorization"},
 		AllowCredentials: true,
 		MaxAge:           300, // Maximum value not ignored by any of major browsers
 	})
@@ -164,7 +164,6 @@ func (a App) addJWT(w http.ResponseWriter, id string) {
 		"exp": exp,
 	})
 	addCookie(w, "jwt", tokenString)
-	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
 	w.Header().Set("Authorization", fmt.Sprintf("BEARER %s", tokenString))
 }
 
@@ -185,13 +184,17 @@ func (a App) mapRouter(next http.Handler) http.Handler {
 			return
 		}
 
-		r.URL.Host = tURL.Host
-		r.URL.Scheme = tURL.Scheme
-		r.Header.Set("X-Forwarded-Host", r.Header.Get("Host"))
-		r.Host = tURL.Host
-		r.URL.Path = strings.Join(strings.Split(r.URL.Path, "/")[appIndex+1:], "/")
-
-		httputil.NewSingleHostReverseProxy(tURL).ServeHTTP(w, r)
+		rp := &httputil.ReverseProxy{
+			Director: func(r *http.Request) {
+				r.URL.Scheme = tURL.Scheme
+				r.URL.Host = tURL.Host
+				r.URL.Path = strings.Join(strings.Split(r.URL.Path, "/")[appIndex+1:], "/")
+				r.Header["X-Forwarded-Host"] = []string{r.Header.Get("Host")}
+			},
+		}
+		w.Header().Set("X-Forwarded-For", r.Header.Get("Host"))
+		w.Header().Del("Access-Control-Allow-Origin")
+		rp.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
 }
