@@ -164,6 +164,7 @@ func (a App) addJWT(w http.ResponseWriter, id string) {
 		"exp": exp,
 	})
 	addCookie(w, "jwt", tokenString)
+	w.Header().Set("Access-Control-Expose-Headers", "Authorization")
 	w.Header().Set("Authorization", fmt.Sprintf("BEARER %s", tokenString))
 }
 
@@ -208,14 +209,6 @@ func (a App) getService(serviceName string) string {
 
 func (a App) validateToken(next http.Handler) http.Handler {
 	fn := func(w http.ResponseWriter, r *http.Request) {
-		token, err := r.Cookie("jwt")
-		if err != nil || token == nil {
-			log.Debug().Msg(err.Error())
-			delCookie(w, "jwt")
-			w.WriteHeader(http.StatusForbidden)
-			w.Write([]byte(TMPLIndex))
-			return
-		}
 		_, claims, _ := jwtauth.FromContext(r.Context())
 		if claims["id"] == nil {
 			delCookie(w, "jwt")
