@@ -1,11 +1,11 @@
 # GALP (go-auth-ldap-proxy)
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/festum/galp)](https://goreportcard.com/report/github.com/festum/galp)
+[![Travis](https://travis-ci.org/Festum/galp.svg?branch=master)](https://travis-ci.org/Festum/galp) [![Go Report Card](https://goreportcard.com/badge/github.com/festum/galp)](https://goreportcard.com/report/github.com/festum/galp)
 
 A reverse proxy provides authentication using LDAP and extra auth source to validate accounts by email. Inspired by [bitly/oauth2_proxy](https://github.com/bitly/oauth2_proxy).
 Many SME using LDAP to manage their employee accounts. Sometimes developer just want to expose internal services and limited access for only employees.
 
-This proxy will going to check accounts credentials from LDAP and extra storage. Then set a JWT token on the domain. 
+This proxy will going to check accounts credentials from LDAP and extra storage. Then set a JWT token on the domain.
 Each request will validate this token and pass request with identity to internal service if valid.
 
 **Features**
@@ -36,8 +36,8 @@ vim .env
 
 - Build
 ```
-go build -o=galp src/github.com/festum/go-ldapauth/cli.go
-go build -o=galp-server src/github.com/festum/go-ldapauth/main.go
+go build -o=galp ./cli/main.go
+go build -o=galp-server ./main.go
 ```
 
 - Add a new user: `./galp user add user1 password`
