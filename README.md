@@ -44,7 +44,7 @@ go build -o=galp-server ./main.go
 
 - Run server: `./galp-server`
 
-
+- Internal service can get LDAP user through `GALP-UID` from request header
 
 ## Flavor
 
