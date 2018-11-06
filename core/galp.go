@@ -55,12 +55,17 @@ const (
 
 //App grouping Chi routes and handlers
 type App struct {
-	IsDev     bool     `env:"DEV_MODE" envDefault:"true"`
-	Address   string   `env:"APP_ADDR" envDefault:"80"`
-	Services  []string `env:"EXPOSE_SERVICES" envSeparator:";"`
-	JWTTTL    int      `env:"APP_JWT_TTL" envDefault:"72"`
-	JWTPKPath string   `env:"APP_JWT_KEY" envDefault:"./galp.key"`
-	JWTAuth   *jwtauth.JWTAuth
+	IsDev          bool     `env:"DEV_MODE" envDefault:"true"`
+	Address        string   `env:"APP_ADDR" envDefault:"80"`
+	Services       []string `env:"EXPOSE_SERVICES" envSeparator:";"`
+	JWTTTL         int      `env:"APP_JWT_TTL" envDefault:"72"`
+	JWTPKPath      string   `env:"APP_JWT_KEY" envDefault:"./galp.key"`
+	JWTAuth        *jwtauth.JWTAuth
+	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
+	AllowedMethods []string `env:"ALLOWED_METHODS" envSeparator:"," envDefault:"GET,POST,PUT,DELETE,OPTIONS"`
+	AllowedHeaders []string `env:"ALLOWED_HEADERS" envSeparator:"," envDefault:"Accept,Authorization,Content-Type,X-CSRF-Token"`
+	ExposedHeaders []string `env:"EXPOSED_HEADERS" envSeparator:"," envDefault:"Link,Authorization"`
+	MaxAge         int      `env:"MAX_AGE" envDefault:"300"` // Maximum value not ignored by any of major browsers
 }
 
 func (a App) init() {
@@ -73,12 +78,12 @@ func (a App) init() {
 //Router Chi router
 func (a App) Router() http.Handler {
 	cx := cors.New(cors.Options{
-		AllowedOrigins:   []string{"*"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-CSRF-Token"},
-		ExposedHeaders:   []string{"Link", "Authorization"},
+		AllowedOrigins:   a.AllowedOrigins,
+		AllowedMethods:   a.AllowedMethods,
+		AllowedHeaders:   a.AllowedHeaders,
+		ExposedHeaders:   a.ExposedHeaders,
 		AllowCredentials: true,
-		MaxAge:           300, // Maximum value not ignored by any of major browsers
+		MaxAge:           a.MaxAge,
 	})
 	r := chi.NewRouter()
 	r.Use(middleware.RequestID)
