@@ -58,6 +58,7 @@ type App struct {
 	IsDev          bool     `env:"DEV_MODE" envDefault:"true"`
 	Address        string   `env:"APP_ADDR" envDefault:"80"`
 	Services       []string `env:"EXPOSE_SERVICES" envSeparator:";"`
+	HeaderIDKey    string   `env:"HEADER_ID_KEY" envDefault:"GALP-UID"`
 	JWTTTL         int      `env:"APP_JWT_TTL" envDefault:"72"`
 	JWTPKPath      string   `env:"APP_JWT_KEY" envDefault:"./galp.key"`
 	JWTAuth        *jwtauth.JWTAuth
@@ -96,7 +97,7 @@ func (a App) Router() http.Handler {
 		r.Use(a.validateToken)
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", r.Header.Get("GALP-UID"))))
+			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", a.HeaderIDKey)))
 		})
 	})
 	r.Group(func(r chi.Router) {
@@ -227,7 +228,7 @@ func (a App) validateToken(next http.Handler) http.Handler {
 
 		id := claims["id"].(string)
 		a.addJWT(w, id) // Extend expiry
-		r.Header.Set("GALP-UID", id)
+		r.Header.Set(a.s, id)
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
