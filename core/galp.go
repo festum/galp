@@ -155,7 +155,7 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.addJWT(w, email)
-	w.Header().Set("User-ID", id)
+	w.Header().Set("User-ID", email)
 
 	if isAPI {
 		w.WriteHeader(200)
