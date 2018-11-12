@@ -155,13 +155,18 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.addJWT(w, email)
-	w.Header().Set("UID", email)
+	a.addUID(w, email)
 
 	if isAPI {
 		w.WriteHeader(200)
 		return
 	}
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
+}
+
+func (a App) addUID(w http.ResponseWriter, id string) {
+	addCookie(w, "UID", id)
+	w.Header().Set("UID", id)
 }
 
 func (a App) addJWT(w http.ResponseWriter, id string) {
