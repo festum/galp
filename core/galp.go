@@ -229,7 +229,7 @@ func (a App) validateToken(next http.Handler) http.Handler {
 
 		id := claims["id"].(string)
 		a.addJWT(w, id) // Extend expiry
-		r.Header.Set(a.s, id)
+		r.Header.Set(a.HeaderIDKey, id)
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
