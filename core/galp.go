@@ -155,18 +155,12 @@ func (a App) loginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.addJWT(w, email)
-	a.addUID(w, email)
 
 	if isAPI {
 		w.WriteHeader(200)
 		return
 	}
 	http.Redirect(w, r, r.Header.Get("Referer"), 302)
-}
-
-func (a App) addUID(w http.ResponseWriter, id string) {
-	addCookie(w, "UID", id)
-	w.Header().Set("UID", id)
 }
 
 func (a App) addJWT(w http.ResponseWriter, id string) {
@@ -227,14 +221,14 @@ func (a App) validateToken(next http.Handler) http.Handler {
 		_, claims, _ := jwtauth.FromContext(r.Context())
 		if claims["id"] == nil {
 			delCookie(w, "jwt")
-			w.WriteHeader(http.StatusForbidden)
+			w.WriteHeader(http.StatusUnauthorized)
 			w.Write([]byte(TMPLIndex))
 			return
 		}
 
 		id := claims["id"].(string)
 		a.addJWT(w, id) // Extend expiry
-		r.Header.Set(a.HeaderIDKey, id)
+		r.Header.Set("GALP-UID", id)
 		next.ServeHTTP(w, r)
 	}
 	return http.HandlerFunc(fn)
