@@ -1,7 +1,7 @@
 package main
 
 import (
-	"github.com/rs/zerolog"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
@@ -9,25 +9,23 @@ import (
 	"github.com/festum/galp/core"
 	"github.com/go-chi/jwtauth"
 	"github.com/joho/godotenv"
-	"github.com/rs/zerolog/log"
 )
 
 func init() {
-	zerolog.SetGlobalLevel(zerolog.ErrorLevel)
 	err := godotenv.Load()
 	if err != nil {
-		log.Error().Msg("Error loading .env file")
+		fmt.Println("Error loading .env file")
 	}
 }
 
 func main() {
 	a := galp.App{}
 	if err := env.Parse(&a); err != nil {
-		log.Info().Msg(err.Error())
+		fmt.Printf("%s\n",  err.Error())
 	}
 	pk, err := ioutil.ReadFile(a.JWTPKPath)
 	if err != nil {
-		log.Info().Msg("Error reading private key " + err.Error())
+		fmt.Printf("Error reading private key %s\n",  err.Error())
 		return
 	}
 	a.JWTAuth = jwtauth.New("HS256", []byte(pk), nil)
