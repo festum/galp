@@ -1,0 +1,20 @@
+version: '3'
+services:
+  galp:
+    restart: always
+    image: golang:1.11.2-stretch
+    container_name: galp
+    network_mode: bridge
+    working_dir: /opt/galp
+    command: |
+      bash -c '
+      go mod download;
+      go build -o ./galp-server ./main.go;
+      ./galp-server'
+    volumes:
+      - .:/opt/galp
+    ports:
+      - "80:80"
+    tty: true
+    environment:
+      GO111MODULE: "on"
