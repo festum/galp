@@ -112,7 +112,7 @@ func updateVal(db *badger.DB, key string, val string) error {
 		return err
 	}
 
-	return txn.Commit()
+	return txn.Commit(nil)
 }
 
 func getVal(db *badger.DB, key string) ([]byte, error) {
@@ -140,7 +140,7 @@ func delKey(db *badger.DB, key string) error {
 		return err
 	}
 
-	return txn.Commit()
+	return txn.Commit(nil)
 }
 
 func pwdHashing(pwd string) string {
