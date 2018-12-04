@@ -97,7 +97,7 @@ func (a App) Router() http.Handler {
 		r.Use(a.validateToken)
 
 		r.Get("/admin", func(w http.ResponseWriter, r *http.Request) {
-			w.Write([]byte(fmt.Sprintf("Protected area. Hi %v", a.HeaderIDKey)))
+			w.Write([]byte(fmt.Sprintf("Hi %v, welcome to protected page.", r.Header.Get(a.HeaderIDKey))))
 		})
 	})
 	r.Group(func(r chi.Router) {

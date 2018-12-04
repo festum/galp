@@ -7,8 +7,7 @@ services:
     network_mode: bridge
     working_dir: /opt/galp
     command: |
-      bash -c '
-      go mod download;
+      bash -c 'go mod download;
       go build -o ./galp-server ./main.go;
       ./galp-server'
     volumes:
