@@ -30,5 +30,5 @@ func main() {
 	}
 	a.JWTAuth = jwtauth.New("HS256", []byte(pk), nil)
 
-	http.ListenAndServe(a.Address, a.Router())
+	http.ListenAndServe(fmt.Sprintf(":%s",  a.Port), a.Router())
 }

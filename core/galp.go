@@ -56,7 +56,7 @@ const (
 //App grouping Chi routes and handlers
 type App struct {
 	IsDev          bool     `env:"DEV_MODE" envDefault:"true"`
-	Address        string   `env:"APP_ADDR" envDefault:"80"`
+	Port           string   `env:"APP_PORT" envDefault:"8080"`
 	Services       []string `env:"EXPOSE_SERVICES" envSeparator:";"`
 	HeaderIDKey    string   `env:"HEADER_ID_KEY" envDefault:"GALP-UID"`
 	JWTTTL         int      `env:"APP_JWT_TTL" envDefault:"72"`

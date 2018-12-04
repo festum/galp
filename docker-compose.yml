@@ -14,7 +14,7 @@ services:
     volumes:
       - .:/opt/galp
     ports:
-      - "80:80"
+      - "${APP_PORT}:${APP_PORT}"
     tty: true
     environment:
       GO111MODULE: "on"
