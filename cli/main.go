@@ -32,13 +32,13 @@ Options:
   --version     Show version.`
 
 	args, _ := docopt.ParseArgs(usage, nil, "0.0.1")
-	path := getenv("DB_PATH", "galp.db")
+	path := getenv("DB_PATH", "/tmp/galp-db")
 	opts := badger.DefaultOptions
 	opts.Dir = path
 	opts.ValueDir = path
 	db, err := badger.Open(opts)
 	if err != nil {
-		fmt.Println(err.Error())
+		fmt.Println("DB conn "+err.Error())
 		return
 	}
 	defer db.Close()

@@ -20,7 +20,7 @@ type ldapauth struct {
 	UserBase     string `env:"LDAP_USER_BASE"`
 	Filter       string `env:"LDAP_FILTER" envDefault:"((mail=%s))"`
 
-	DBPath string `env:"DB_PATH" envDefault:"galp.db"`
+	DBPath string `env:"DB_PATH" envDefault:"/tmp/galp-db"`
 }
 
 func (la ldapauth) authVerify(email, password string) bool {
