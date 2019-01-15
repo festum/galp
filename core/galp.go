@@ -65,7 +65,7 @@ type App struct {
 	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envSeparator:"," envDefault:"*"`
 	AllowedMethods []string `env:"ALLOWED_METHODS" envSeparator:"," envDefault:"GET,POST,PUT,DELETE,OPTIONS"`
 	AllowedHeaders []string `env:"ALLOWED_HEADERS" envSeparator:"," envDefault:"Accept,Authorization,Content-Type,X-CSRF-Token"`
-	ExposedHeaders []string `env:"EXPOSED_HEADERS" envSeparator:"," envDefault:"Link,Authorization"`
+	ExposedHeaders []string `env:"EXPOSED_HEADERS" envSeparator:"," envDefault:"Origin,Link,Authorization"`
 	MaxAge         int      `env:"MAX_AGE" envDefault:"300"` // Maximum value not ignored by any of major browsers
 }
 
